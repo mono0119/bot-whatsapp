@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 import httpx
 
 load_dotenv()
-
 app = FastAPI()
 
 def get_response(text: str) -> str:

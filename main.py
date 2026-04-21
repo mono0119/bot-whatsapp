@@ -1,4 +1,5 @@
 import os
+import re
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
 from dotenv import load_dotenv
@@ -9,7 +10,7 @@ app = FastAPI()
 
 def get_response(text: str) -> str:
     text = text.strip().lower()
-    if any(w in text for w in ["hola","menu","start","hi","inicio"]):
+    if re.search(r'\b(hola|menu|start|hi|inicio)\b', text):
         return (
             "Hola! Bienvenido a CreateC3D\n\n"
             "En que te puedo ayudar?\n\n"
@@ -17,18 +18,27 @@ def get_response(text: str) -> str:
             "2 - Ver precios\n"
             "3 - Agendar cita\n"
             "4 - Metodos de pago\n"
-            "5 - Hablar con asesor"
+            "5 - Hablar con asesor\n"
+            "6 - Sobre nosotros\n"
+            "7 - Horarios\n"
+            "8 - Ubicacion"
         )
-    elif "1" in text or "servicio" in text:
+    elif re.search(r'\b(1|servicio|servicios)\b', text):
         return "Servicios:\n- Consultoria\n- Auditoria\n- Coaching\n- Capacitacion"
-    elif "2" in text or "precio" in text:
+    elif re.search(r'\b(2|precio|precios)\b', text):
         return "Precios:\n- Consultoria: $150\n- Auditoria: $300\n- Coaching: $200"
-    elif "3" in text or "cita" in text:
+    elif re.search(r'\b(3|cita|citas)\b', text):
         return "Agenda tu cita aqui:\nhttps://calendly.com/createc3d"
-    elif "4" in text or "pago" in text:
+    elif re.search(r'\b(4|pago|pagos)\b', text):
         return "Aceptamos:\n- Tarjeta\n- Transferencia\n- PayPal\n- Zelle"
-    elif "5" in text or "asesor" in text:
+    elif re.search(r'\b(5|asesor|asesores)\b', text):
         return "Te conectamos con un asesor:\n+57 300 123 4567"
+    elif re.search(r'\b(6|nosotros|empresa)\b', text):
+        return "Sobre nosotros:\nSomos CreateC3D, una empresa líder en consultoría y capacitación."
+    elif re.search(r'\b(7|horario|horarios)\b', text):
+        return "Horarios de atención:\nLunes a Viernes de 9:00 am a 6:00 pm"
+    elif re.search(r'\b(8|ubicacion|donde)\b', text):
+        return "Ubicación:\nNos encontramos en Calle Falsa 123, Ciudad."
     else:
         return "No entendi. Escribe menu para ver las opciones."
 

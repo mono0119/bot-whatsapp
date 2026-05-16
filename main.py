@@ -1,58 +1,79 @@
-import os
+# main.py - Bot WhatsApp CREATEC 3D con IA (Gemini)
 from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import Response
+from twilio.twiml.messaging_response import MessagingResponse
+import google.generativeai as genai
+import os
 from dotenv import load_dotenv
-import httpx
 
 load_dotenv()
-app = FastAPI()
 
-def get_response(text: str) -> str:
-    text = text.strip().lower()
-    if any(w in text for w in ["hola","menu","start","hi","inicio"]):
-        return (
-            "Hola! Bienvenido a CreateC3D\n\n"
-            "En que te puedo ayudar?\n\n"
-            "1 - Ver servicios\n"
-            "2 - Ver precios\n"
-            "3 - Agendar cita\n"
-            "4 - Metodos de pago\n"
-            "5 - Hablar con asesor"
-        )
-    elif "1" in text or "servicio" in text:
-        return "Servicios:\n- Consultoria\n- Auditoria\n- Coaching\n- Capacitacion"
-    elif "2" in text or "precio" in text:
-        return "Precios:\n- Consultoria: $150\n- Auditoria: $300\n- Coaching: $200"
-    elif "3" in text or "cita" in text:
-        return "Agenda tu cita aqui:\nhttps://calendly.com/createc3d"
-    elif "4" in text or "pago" in text:
-        return "Aceptamos:\n- Tarjeta\n- Transferencia\n- PayPal\n- Zelle"
-    elif "5" in text or "asesor" in text:
-        return "Te conectamos con un asesor:\n+57 300 123 4567"
-    else:
-        return "No entendi. Escribe menu para ver las opciones."
+# Configurar Gemini
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+# Contexto de CREATEC 3D para la IA
+CREATEC_CONTEXT = """
+Eres el asistente virtual oficial de CREATEC 3D, una agencia colombiana dirigida por John Alvarez.
+
+SERVICIOS:
+1. MARKETING Y BRANDING: Identidad visual completa, campañas digitales medibles, contenido para redes sociales, estrategia de crecimiento.
+2. DESARROLLO WEB: Páginas web a medida, tiendas online (e-commerce), landing pages de alta conversión, optimización para Google (SEO).
+3. IMPRESIÓN 3D: Prototipos rápidos, piezas funcionales, diseño 3D a medida, modelos personalizados.
+4. SOLUCIONES CON IA: Asistentes IA para WhatsApp, automatización de tareas, análisis de datos con IA, integración con sistemas existentes.
+5. ASESORÍA VISA USA: Llenado del DS-160, preparación para entrevista consular, simulacros, acompañamiento personal para visa B1/B2.
+6. EDUCACIÓN E INGLÉS: Clases de inglés conversacional, preparación de exámenes, formación en IA aplicada, cursos personalizados.
+
+PROCESO:
+- Paso 1: Asesoría inicial gratis, sin compromiso
+- Paso 2: Propuesta clara con tiempos, alcance y precio honesto
+- Paso 3: Ejecución con avances aprobados por el cliente
+- Paso 4: Soporte 30 días post-entrega
+
+REGLAS:
+- Siempre responde en español
+- Sé profesional pero cercano
+- Si no sabes algo, ofrece agendar asesoría gratis con John
+- Nunca inventes precios específicos, di "depende del alcance" y ofrece cotización
+- Respuestas cortas (maximo 2-3 frases) para WhatsApp
+"""
+
+app = FastAPI()
 
 @app.post("/webhook")
 async def webhook(request: Request):
+    form_data = await request.form()
+    incoming_msg = form_data.get("Body", "").strip().lower()
+    
+    # Crear respuesta Twilio
+    resp = MessagingResponse()
+    msg = resp.message()
+    
+    # Comandos especiales (menu rapido)
+    if incoming_msg in ["hola", "menu", "hi", "start"]:
+        msg.body("Hola! Soy el asistente de CREATEC 3D. En que puedo ayudarte? Preguntame sobre nuestros servicios, impresion 3D, desarrollo web, visas USA, marketing digital, clases de ingles, o escribe tu pregunta directamente.")
+        return Response(content=str(resp), media_type="application/xml")
+
+    if incoming_msg in ["5", "asesor", "humano", "agente"]:
+        msg.body("Te transfiero con John o un asesor. Por favor espera un momento...")
+        return Response(content=str(resp), media_type="application/xml")
+    
+    # Respuesta con IA (Gemini)
     try:
-        form = await request.form()
-        body = str(form.get("Body", ""))
-        phone = str(form.get("From", ""))
-        print(f"Mensaje de {phone}: {body}")
-        response_text = get_response(body)
-        sid = os.getenv("TWILIO_ACCOUNT_SID")
-        token = os.getenv("TWILIO_AUTH_TOKEN")
-        from_num = os.getenv("TWILIO_WHATSAPP_NUMBER")
-        url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
-        async with httpx.AsyncClient() as client:
-            r = await client.post(url,
-                data={"From": from_num, "To": phone, "Body": response_text},
-                auth=(sid, token))
-            print(f"Twilio respondio: {r.status_code}")
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        chat = model.start_chat(history=[])
+        
+        prompt = f"{CREATEC_CONTEXT}\n\nCLIENTE: {incoming_msg}\nASISTENTE:"
+        response = chat.send_message(prompt)
+        
+        respuesta_ia = response.text
+        msg.body(respuesta_ia)
+
     except Exception as e:
-        print(f"ERROR: {e}")
-    return PlainTextResponse("OK")
+        msg.body("Lo siento, tuve un problema. Escribe 'asesor' para hablar con un humano o intenta de nuevo.")
+        print(f"Error Gemini: {e}")
+
+    return Response(content=str(resp), media_type="application/xml")
 
 @app.get("/")
-async def health():
-    return {"status": "ok"}
+def health_check():
+    return {"status": "CREATEC 3D Bot activo", "version": "2.0-IA"}
